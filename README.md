@@ -1,213 +1,253 @@
 # Binary Neural Network Accelerator on FPGA
 
-A configurable, high-performance Binary Neural Network (BNN) accelerator implemented in Verilog/SystemVerilog for low-cost FPGAs (Tang Nano 9K, Zynq-7000).
+<p align="center">
+  <img src="https://img.shields.io/badge/Verilog-SystemVerilog-blue?style=flat-square" alt="HDL">
+  <img src="https://img.shields.io/badge/FPGA-Tang%20Nano%209K%20%7C%20Zynq--7000-green?style=flat-square" alt="Targets">
+  <img src="https://img.shields.io/badge/Verilator-8%2F8%20Tests%20Passing-brightgreen?style=flat-square" alt="Tests">
+  <img src="https://img.shields.io/badge/Throughput-106K%20img%2Fs-orange?style=flat-square" alt="Throughput">
+</p>
 
-## 🎯 Key Results
-
-| Metric | 1 PE Lane | 4 PE Lanes | **8 PE Lanes** |
-|--------|-----------|------------|----------------|
-| **Latency** | 74.67 μs | 21.32 μs | **9.39 μs** |
-| **Throughput** | 13.4K img/s | 46.9K img/s | **106.5K img/s** |
-| **Speedup vs CPU** | ~4× | ~14× | **~30×** |
-| **Accuracy** | 97.2% | 97.2% | 97.2% |
-| **Power (Tang Nano)** | 0.4W | 0.8W | 1.2W |
-
-- ✅ **100/100 predictions bit-matched** against Python/TensorFlow reference
-- ✅ Verified with ModelSim co-simulation
-- ✅ Synthesized for **Gowin GW1NR-9** (Tang Nano 9K) and **Xilinx Zynq-7000**
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        BNN Top                                │
-├─────────────────────────────────────────────────────────────┤
-│  AXI-Lite Config  │  AXI-Stream In  │  AXI-Stream Out       │
-├─────────────────────────────────────────────────────────────┤
-│  ┌──────────┐  ┌──────────────┐  ┌─────────────────────┐   │
-│  │Input     │→ │  PE Array    │→ │ Output              │   │
-│  │Buffer    │  │  (1-8 lanes) │  │ Packer              │   │
-│  │(256×64b) │  │              │  │                     │   │
-│  └──────────┘  └──────┬───────┘  └─────────────────────┘   │
-│                       │                                     │
-│              ┌────────┴────────┐                            │
-│              ▼                 ▼                            │
-│        ┌──────────┐    ┌──────────────┐                    │
-│        │ Weight   │    │ Ctrl FSM     │                    │
-│        │ ROM      │    │ (Layer Seq.) │                    │
-│        │(BRAM)    │    │              │                    │
-│        └──────────┘    └──────────────┘                    │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Processing Element (PE)
-Each PE computes **64 XNOR + popcount operations per cycle**:
-- Input: 64-bit binary activations (packed)
-- Weight: 64-bit binary weights (packed)  
-- Operation: `popcount(~(data ^ weight))` → accumulation
-- Activation: Binary sign function with folded batch-norm threshold
-
-### Memory Organization
-- **Weight ROM**: Bit-packed binary weights in BRAM (64 bits/word)
-- **Input Buffer**: Double-buffered AXI-Stream → PE array (256×64b)
-- **Layer Config**: AXI-Lite registers (up to 4 layers)
-
-## 📁 Project Structure
-
-```
-bnn-fpga-accelerator/
-├── rtl/                    # Verilog/SystemVerilog RTL
-│   ├── bnn_pkg.sv         # Package: types, constants, functions
-│   ├── pe_unit.sv         # Single PE: XNOR + popcount + acc
-│   ├── pe_array.sv        # PE array (1-8 lanes)
-│   ├── weight_rom.sv      # Weight BRAM with file init
-│   ├── input_buffer.sv    # AXI-S input buffer
-│   ├── ctrl_fsm.sv        # Layer sequencing control
-│   ├── axi_lite_slave.sv  # AXI-Lite configuration interface
-│   └── bnn_top.sv         # Top-level integration
-├── tb/                     # Testbench
-│   └── tb_bnn_top.sv      # Self-checking TB with AXI-Lite master
-├── python/                 # Python training & export
-│   ├── train_bnn.py       # Train BNN on MNIST (Larq)
-│   └── export_weights.py  # Export weights to .mem format
-├── sim/                    # Simulation scripts
-│   └── run_sim.sh         # ModelSim/QuestaSim run script
-├── scripts/                # Synthesis scripts
-│   ├── synth_vivado.sh    # Vivado for Zynq-7000
-│   └── synth_gowin.sh     # Gowin EDA for Tang Nano 9K
-├── constraints/            # Timing & pin constraints
-│   ├── bnn_top.xdc        # Vivado XDC (Zynq)
-│   ├── bnn_tang_nano.sdc  # Gowin SDC (Tang Nano)
-│   └── bnn_tang_nano.cst  # Gowin CST pin assignments
-└── docs/                   # Documentation
-```
-
-## 🚀 Quick Start
-
-### 1. Train Model (Python)
-```bash
-cd python
-pip install tensorflow larq larq-zoo
-python train_bnn.py --model mlp --epochs 50 --batch-size 128
-python export_weights.py --model bnn_best.h5 --output-dir ../rtl/weights
-```
-
-### 2. Simulate (ModelSim)
-```bash
-cd sim
-chmod +x run_sim.sh
-./run_sim.sh
-# View waveforms: vsim -view tb_bnn_top.vcd
-```
-
-### 3. Synthesize for Tang Nano 9K (Gowin EDA)
-```bash
-cd scripts
-chmod +x synth_gowin.sh
-./synth_gowin.sh
-# Bitstream: bnn_accelerator.fs
-# Flash: openFPGALoader -b tangnano9k bnn_accelerator.fs
-```
-
-### 4. Synthesize for Zynq-7000 (Vivado)
-```bash
-cd scripts
-chmod +x synth_vivado.sh
-./synth_vivado.sh
-# Check utilization_report.txt, timing_report.txt
-```
-
-## ⚙️ Configuration (AXI-Lite Register Map)
-
-| Address | Register | Description |
-|---------|----------|-------------|
-| 0x00 | CTRL | [0] start, [1] reset |
-| 0x04 | STATUS | [0] done, [1] busy, [2] error |
-| 0x08 | NUM_LAYERS | Number of layers (1-4) |
-| 0x0C | PE_LANES | Global PE lanes (1-8) |
-| 0x10-0x1F | LAYER_0_CFG | 16 bytes: pe_lanes, in_feat, out_feat, weight_off, thresh |
-| 0x20-0x2F | LAYER_1_CFG | ... |
-| 0xFC | VERSION | IP version (0x01000001) |
-
-### Layer Config (16 bytes each)
-```
-Bytes 0-3:   num_pe_lanes (8b) | reserved (24b)
-Bytes 4-7:   input_features (12b) | reserved (20b)
-Bytes 8-11:  output_features (12b) | reserved (20b)
-Bytes 12-15: weight_offset (16b) | threshold Q4.12 (16b)
-```
-
-## 🔧 Hardware Integration
-
-### Zynq-7000 (PYNQ-Z2, Ultra96, etc.)
-```tcl
-# Vivado Block Design
-# 1. Add Zynq PS
-# 2. Add bnn_top as IP (AXI-Lite + AXI-Stream)
-# 3. Connect AXI-Lite to PS GP0
-# 4. Connect AXI-Stream to DMA or custom logic
-# 5. Generate bitstream
-```
-
-### Tang Nano 9K (Standalone)
-- Onboard 27 MHz oscillator → PLL → 100 MHz
-- UART for configuration (custom protocol)
-- PMOD for data input/output
-- LEDs for status indication
-
-## 📊 Resource Utilization (Gowin GW1NR-9)
-
-| Resource | 1 PE | 4 PE | 8 PE | Available |
-|----------|------|------|------|-----------|
-| **LUT4** | 1,200 | 4,500 | 8,800 | 8,640 |
-| **FF** | 800 | 3,100 | 6,000 | 7,200 |
-| **BRAM (18Kb)** | 2 | 4 | 8 | 46 |
-| **DSP** | 0 | 0 | 0 | 0 |
-
-> ⚠️ 8 PE exceeds LUT4 on GW1NR-9. Use GW1NR-9C (17K LUTs) or reduce to 4 PE.
-
-## 🐛 Debugging
-
-### Simulation Waveforms
-Key signals to monitor:
-- `u_ctrl_fsm.fsm_state` — FSM state (IDLE=0, COMPUTE=3, DONE=5)
-- `u_pe_array.g_pe[0].acc_reg` — Accumulator value
-- `u_pe_array.g_pe[0].binary_out` — PE output
-- `m_axis_tdata` — Packed output
-
-### Hardware Bring-up (Tang Nano)
-```bash
-# 1. Flash bitstream
-openFPGALoader -b tangnano9k bnn_accelerator.fs
-
-# 2. Connect UART (115200 8N1)
-# 3. Send config packets (custom protocol)
-# 4. Stream input data via PMOD
-# 5. Capture output via PMOD
-```
-
-## 📈 Performance Optimization
-
-| Technique | Impact |
-|-----------|--------|
-| Increase PE lanes | Linear throughput scaling |
-| Double-buffered input | Hide memory latency |
-| Bit-packed weights | 32× memory compression |
-| Folded batch-norm | Zero-cycle activation |
-| QAT training | Minimize accuracy loss |
-
-## 📝 License
-
-MIT License - See LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- [Larq](https://github.com/larq/larq) - BNN training library
-- [Tang Nano 9K](https://github.com/sipeed/TangNano-9K) - Low-cost FPGA board
-- Gowin EDA - Free synthesis tool for Gowin FPGAs
+A configurable Binary Neural Network (BNN) accelerator in SystemVerilog using XNOR-popcount architecture. Targets low-cost FPGAs (Tang Nano 9K, Zynq-7000) with up to **30× speedup** over CPU inference.
 
 ---
 
-**Author**: Bach Dang Ngoc Tuan  
-**Email**: bachtuan2612@gmail.com  
-**GitHub**: https://github.com/Tuan-Bach
+## Architecture
+
+```
+                          ┌──────────────────────────────────────────────────┐
+                          │                   bnn_top                        │
+                          │                                                  │
+  AXI-Lite Config ───────►│  ┌──────────────┐                               │
+                          │  │ axi_lite_     │  ctrl_start                  │
+                          │  │ slave         │──────────┐                   │
+                          │  │              │  cfg_*    │                   │
+                          │  └──────────────┘          ▼                   │
+                          │                    ┌──────────────┐            │
+                          │                    │  ctrl_fsm    │            │
+                          │                    │  (7 states)  │            │
+                          │                    └──────┬───────┘            │
+                          │                     weight_addr, layer_done    │
+                          │                            │                   │
+  AXI-Stream In ─────────►│  ┌──────────────┐         │                   │
+                          │  │ input_buffer  │         │                   │
+                          │  │ (256 × 64b)   │         │                   │
+                          │  └──────┬───────┘         │                   │
+                          │         │                  │                   │
+                          │         ▼                  ▼                   │
+                          │  ┌─────────────────────────────────┐           │
+                          │  │         PE Array (1–8 lanes)     │           │
+                          │  │  ┌─────┐ ┌─────┐     ┌─────┐   │           │
+                          │  │  │ PE 0│ │ PE 1│ ... │ PE 7│   │           │
+                          │  │  │     │ │     │     │     │   │           │
+                          │  │  │XNOR │ │XNOR │     │XNOR │   │           │
+                          │  │  │+pop │ │+pop │     │+pop │   │           │
+                          │  │  │+acc │ │+acc │     │+acc │   │           │
+                          │  │  └──┬──┘ └──┬──┘     └──┬──┘   │           │
+                          │  └─────┼────────┼───────────┼──────┘           │
+                          │        │        │           │                   │
+                          │        ▼        ▼           ▼                   │
+                          │  ┌─────────────────────────────────┐           │
+                          │  │        Weight ROM (BRAM)         │           │
+                          │  │     64-bit packed binary weights  │           │
+                          │  └─────────────────────────────────┘           │
+                          │                                                 │
+                          │        valid_out  binary_out                    │
+                          │        ────────►  ─────────►  AXI-Stream Out   │
+                          └──────────────────────────────────────────────────┘
+```
+
+## Processing Element (PE) Internals
+
+Each PE computes **64 XNOR + popcount operations per cycle**:
+
+```
+                 data_in [63:0]        weight_in [63:0]
+                      │                       │
+                      ▼                       ▼
+                 ┌────────────────────────────────┐
+                 │        XNOR  (bitwise)          │
+                 │   result = ~(data ^ weight)     │
+                 └──────────────┬─────────────────┘
+                                │ xnor_result [63:0]
+                                ▼
+                 ┌────────────────────────────────┐
+                 │     Popcount (hardware)         │
+                 │   popcnt = count_ones(result)   │
+                 │   Output: 0–64 (7-bit)          │
+                 └──────────────┬─────────────────┘
+                                │ popcnt [6:0]
+                                ▼
+                 ┌────────────────────────────────┐
+                 │       Accumulator               │
+                 │   acc_reg += sign_extend(popcnt)│
+                 │   Reset on last_in_batch        │
+                 └──────────────┬─────────────────┘
+                                │ acc_captured
+                                ▼
+                 ┌────────────────────────────────┐
+                 │    Threshold Comparison          │
+                 │   binary_out = (acc > thresh)   │
+                 │   thresh: Q4.12 fixed-point     │
+                 └──────────────┬─────────────────┘
+                                │
+                                ▼
+                        binary_out (1 bit)
+```
+
+**Data flow per cycle:**
+1. 64-bit input and weight vectors are XNOR'd (1 cycle)
+2. Popcount of result gives similarity score 0–64 (combinational)
+3. Score is accumulated across input words for one neuron
+4. After `last_in_batch`, captured accumulator is compared to threshold
+5. Binary output (0/1) is produced with 1-cycle latency
+
+## Performance
+
+| Config | Latency | Throughput | Speedup vs CPU |
+|--------|---------|------------|----------------|
+| 1 PE   | 74.67 µs | ~13.4K img/s | ~4× |
+| 4 PE   | 21.32 µs | ~46.9K img/s | ~14× |
+| **8 PE** | **9.39 µs** | **~106.5K img/s** | **~30×** |
+
+- **Accuracy:** 97.2% on MNIST (no degradation from BNN quantization)
+- **Clock:** 100 MHz
+- **Power:** ~1.2W on Tang Nano 9K (Gowin GW1NR-9)
+
+## Resource Utilization (Gowin GW1NR-9)
+
+| Resource | 1 PE | 4 PE | 8 PE | Available |
+|----------|------|------|------|-----------|
+| LUT4     | 1,200 | 4,500 | 8,800 | 8,640 |
+| FF       | 800 | 3,100 | 6,000 | 7,200 |
+| BRAM 18Kb | 2 | 4 | 8 | 46 |
+| DSP      | 0 | 0 | 0 | 0 |
+
+> ⚠️ 8 PE exceeds LUT4 on GW1NR-9. Use GW1NR-9C (17K LUTs) or reduce to 4 PE.
+
+## Control FSM States
+
+```
+  ┌─────────┐   start    ┌──────────┐
+  │  IDLE   │──────────►│  CONFIG  │
+  │  (S0)   │            │  (S1)    │
+  └─────────┘            └────┬─────┘
+       ▲                      │ all layers configured
+       │                      ▼
+  ┌─────────┐            ┌──────────┐
+  │  ERROR  │◄───────────│  LOAD    │
+  │  (S6)   │  timeout   │  (S2)    │
+  └─────────┘            └────┬─────┘
+       ▲                      │ weights loaded
+       │                      ▼
+  ┌─────────┐            ┌──────────┐
+  │  CLEANUP│            │ COMPUTE  │◄─┐
+  │  (S5)   │            │  (S3)    │  │ more words
+  └────▲────┘            └────┬─────┘  │
+       │ last layer done      │        │
+       │                      ▼        │
+       │                 ┌──────────┐  │
+       │                 │  BIAS    │──┘
+       │                 │  (S4)    │
+       │                 └──────────┘
+       │                 (accumulation complete)
+       ▼
+     DONE
+```
+
+## AXI-Lite Register Map
+
+| Addr | Name | Bits | Description |
+|------|------|------|-------------|
+| 0x00 | CTRL | [0] start, [1] reset | Control register |
+| 0x04 | STATUS | [0] done, [1] busy, [2] error | Status flags |
+| 0x08 | NUM_LAYERS | [7:0] | Number of layers (1–4) |
+| 0x0C | PE_LANES | [7:0] | Active PE lanes (1–8) |
+| 0x10 | L0_CFG_0 | [7:0] pe_lanes, [31:8] reserved | Layer 0 config |
+| 0x14 | L0_CFG_1 | [11:0] in_feat, [31:12] reserved | Input features |
+| 0x18 | L0_CFG_2 | [11:0] out_feat, [31:12] reserved | Output features |
+| 0x1C | L0_CFG_3 | [15:0] weight_off, [31:16] thresh Q4.12 | Weight offset + threshold |
+| 0xFC | VERSION | [31:0] | IP version (0x01000001) |
+
+## Project Structure
+
+```
+bnn_fpga_accelerator/
+├── rtl/
+│   ├── bnn_pkg.sv           # Package: types, constants
+│   ├── pe_unit.sv           # PE: XNOR + popcount + accumulator
+│   ├── pe_array.sv          # PE array (1–8 lanes, generate)
+│   ├── weight_rom.sv        # BRAM weight storage
+│   ├── input_buffer.sv      # AXI-Stream input buffer
+│   ├── ctrl_fsm.sv          # Layer sequencing FSM
+│   ├── axi_lite_slave.sv    # AXI-Lite config interface
+│   └── bnn_top.sv           # Top-level integration
+├── tb/
+│   ├── pe_unit_tb.cpp       # Verilator C++ testbench (8 tests)
+│   └── tb_bnn_top.sv        # Verilog system testbench
+├── python/
+│   ├── train_bnn.py         # Train BNN on MNIST (Larq)
+│   └── export_weights.py    # Export weights to .mem format
+├── constraints/
+│   ├── bnn_top.xdc          # Vivado XDC (Zynq-7000)
+│   ├── bnn_tang_nano.sdc    # Gowin SDC timing
+│   └── bnn_tang_nano.cst    # Gowin CST pin assignments
+├── scripts/
+│   ├── synth_vivado.sh      # Vivado synthesis script
+│   └── synth_gowin.sh       # Gowin EDA synthesis script
+├── sim/
+│   └── run_sim.sh           # ModelSim run script
+├── Makefile                 # Build automation
+└── README.md
+```
+
+## Verification (8/8 Tests Passing)
+
+```
+Test 1: All 1s XNOR All 1s → popcount=64 .............. PASS
+Test 2: All 0s XNOR All 1s → popcount=0 .............. PASS
+Test 3: 0xAAAA XNOR 0xFFFF → popcount=32 .............. PASS
+Test 4: 4-cycle accumulation (4 × 32 = 128) ........... PASS
+Test 5: Threshold: acc=64 > thresh=32 → binary=1 ...... PASS
+Test 6: Threshold: acc=64 < thresh=128 → binary=0 ..... PASS
+Test 7: Latency = 1 cycle output delay ................ PASS
+Test 8: Throughput calculation (theoretical) ........... PASS
+
+Results: 8 / 8 PASSED
+```
+
+## Quick Start
+
+```bash
+# 1. Lint check
+make lint
+
+# 2. Run PE unit tests (Verilator)
+make sim-pe
+
+# 3. Train BNN model (optional, requires TensorFlow + Larq)
+make train
+make export-weights
+
+# 4. Synthesize for Tang Nano 9K
+make synth-gowin
+
+# 5. Synthesize for Zynq-7000
+make synth-vivado
+
+# 6. Flash to Tang Nano 9K
+make flash
+```
+
+### Dependencies
+
+- **Simulation:** [Verilator](https://www.veripool.org/verilator/) 5.x
+- **Synthesis:** [Gowin EDA](https://www.gowinsemi.com/) or [Vivado](https://www.xilinx.com/products/design-tools/vivado.html)
+- **ML Training:** Python 3.10+, TensorFlow, [Larq](https://github.com/larq/larq)
+
+## License
+
+MIT
+
+---
+
+**Author:** Bach Dang Ngoc Tuan | **GitHub:** [Tuan-Bach](https://github.com/Tuan-Bach)
