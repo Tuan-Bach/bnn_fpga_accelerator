@@ -1,0 +1,48 @@
+## CST Constraints for Tang Nano 9K (Gowin GW1NR-9QN88)
+## Pin assignments for GW1NR-LV9QN88PC6/I5
+
+# Clock - Pin 52 (GPIO0 / XTAL_IN)
+IO_LOC "clk" 52;
+IO_PORT "clk" PULL_MODE=NONE DRIVE=8;
+
+# Reset - Button (Pin 47, BTN1)
+IO_LOC "rst_n" 47;
+IO_PORT "rst_n" PULL_MODE=UP DRIVE=8;
+
+# LEDs for status
+IO_LOC "led[0]" 10;  # LED0 - Red
+IO_LOC "led[1]" 11;  # LED1 - Green
+IO_LOC "led[2]" 13;  # LED2 - Blue
+IO_PORT "led[*]" PULL_MODE=NONE DRIVE=8;
+
+# UART for debug (optional)
+IO_LOC "uart_tx" 35;  # GPIO1 / TX
+IO_LOC "uart_rx" 34;  # GPIO2 / RX
+IO_PORT "uart_*" PULL_MODE=UP DRIVE=8;
+
+# PMOD header for AXI-Stream input (optional)
+# PMOD1: Pins 54, 55, 56, 57, 58, 59, 60, 61
+IO_LOC "pmod1[0]" 54;
+IO_LOC "pmod1[1]" 55;
+IO_LOC "pmod1[2]" 56;
+IO_LOC "pmod1[3]" 57;
+IO_LOC "pmod1[4]" 58;
+IO_LOC "pmod1[5]" 59;
+IO_LOC "pmod1[6]" 60;
+IO_LOC "pmod1[7]" 61;
+IO_PORT "pmod1[*]" PULL_MODE=NONE DRIVE=8;
+
+# PMOD2 for output (optional)
+# PMOD2: Pins 62, 63, 64, 65, 66, 67, 68, 69
+IO_LOC "pmod2[0]" 62;
+IO_LOC "pmod2[1]" 63;
+IO_LOC "pmod2[2]" 64;
+IO_LOC "pmod2[3]" 65;
+IO_LOC "pmod2[4]" 66;
+IO_LOC "pmod2[5]" 67;
+IO_LOC "pmod2[6]" 68;
+IO_LOC "pmod2[7]" 69;
+IO_PORT "pmod2[*]" PULL_MODE=NONE DRIVE=8;
+
+# Configuration: Use internal oscillator if no external clock
+# CONFIG "OSC_FREQ" "27MHz";

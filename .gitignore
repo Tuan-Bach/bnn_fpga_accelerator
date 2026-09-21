@@ -1,0 +1,34 @@
+# Simulation output
+obj_dir/
+*.vcd
+*.ucdb
+work/
+transcript
+
+# Python
+__pycache__/
+*.pyc
+*.h5
+*.csv
+logs/
+
+# Synthesis
+scripts/*.log
+scripts/*.jou
+scripts/*.dcp
+scripts/*.fs
+scripts/bnn_accelerator.gprj
+
+# Weights (generated)
+rtl/weights/
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
