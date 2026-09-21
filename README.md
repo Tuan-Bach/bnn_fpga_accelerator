@@ -1,10 +1,10 @@
 # Binary Neural Network Accelerator on FPGA
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Verilog-SystemVerilog-blue?style=flat-square" alt="HDL">
-  <img src="https://img.shields.io/badge/FPGA-Tang%20Nano%209K%20%7C%20Zynq--7000-green?style=flat-square" alt="Targets">
-  <img src="https://img.shields.io/badge/Verilator-8%2F8%20Tests%20Passing-brightgreen?style=flat-square" alt="Tests">
-  <img src="https://img.shields.io/badge/Throughput-106K%20img%2Fs-orange?style=flat-square" alt="Throughput">
+  ![HDL](https://img.shields.io/badge/Verilog-SystemVerilog-blue?style=flat-square)
+  ![Targets](https://img.shields.io/badge/FPGA-Tang%20Nano%209K%20%7C%20Zynq--7000-green?style=flat-square)
+  ![Tests](https://img.shields.io/badge/Verilator-8%2F8%20Tests%20Passing-brightgreen?style=flat-square)
+  ![Throughput](https://img.shields.io/badge/Throughput-106K%20img%2Fs-orange?style=flat-square)
 </p>
 
 A configurable Binary Neural Network (BNN) accelerator in SystemVerilog using XNOR-popcount architecture. Targets low-cost FPGAs (Tang Nano 9K, Zynq-7000) with up to **30× speedup** over CPU inference.
@@ -122,7 +122,7 @@ Each PE computes **64 XNOR + popcount operations per cycle**:
 | BRAM 18Kb | 2 | 4 | 8 | 46 |
 | DSP      | 0 | 0 | 0 | 0 |
 
-> ⚠️ 8 PE exceeds LUT4 on GW1NR-9. Use GW1NR-9C (17K LUTs) or reduce to 4 PE.
+> **Note:** 8 PE exceeds LUT4 on GW1NR-9. Use GW1NR-9C (17K LUTs) or reduce to 4 PE.
 
 ## Control FSM States
 
