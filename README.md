@@ -99,49 +99,10 @@ bnn_fpga_accelerator/
 └── README.md
 ```
 
-## Verification (8/8 Tests Passing)
+## Documentation
 
-```
-Test 1: All 1s XNOR All 1s -> popcount=64 .............. PASS
-Test 2: All 0s XNOR All 1s -> popcount=0 .............. PASS
-Test 3: 0xAAAA XNOR 0xFFFF -> popcount=32 .............. PASS
-Test 4: 4-cycle accumulation (4 x 32 = 128) ........... PASS
-Test 5: Threshold: acc=64 > thresh=32 -> binary=1 ...... PASS
-Test 6: Threshold: acc=64 < thresh=128 -> binary=0 ..... PASS
-Test 7: Latency = 1 cycle output delay ................ PASS
-Test 8: Throughput calculation (theoretical) ........... PASS
-
-Results: 8 / 8 PASSED
-```
-
-## Quick Start
-
-```bash
-# 1. Lint check
-make lint
-
-# 2. Run PE unit tests (Verilator)
-make sim-pe
-
-# 3. Train BNN model (optional, requires TensorFlow + Larq)
-make train
-make export-weights
-
-# 4. Synthesize for Tang Nano 9K
-make synth-gowin
-
-# 5. Synthesize for Zynq-7000
-make synth-vivado
-
-# 6. Flash to Tang Nano 9K
-make flash
-```
-
-### Dependencies
-
-- **Simulation:** [Verilator](https://www.veripool.org/verilator/) 5.x
-- **Synthesis:** [Gowin EDA](https://www.gowinsemi.com/) or [Vivado](https://www.xilinx.com/products/design-tools/vivado.html)
-- **ML Training:** Python 3.10+, TensorFlow, [Larq](https://github.com/larq/larq)
+- [Quick Start](docs/quickstart.md) - Setup, simulation, synthesis, and deployment
+- [Verification](docs/verification.md) - Test results and debugging guide
 
 ## License
 
