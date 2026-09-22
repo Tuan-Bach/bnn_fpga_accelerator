@@ -50,7 +50,7 @@ End-to-end verification with real dataset images through the Verilog PE hardware
 | **MNIST** | 784 | 10 | 97.98% | 97.33% | **97.90% (979/1000)** |
 | **Fashion-MNIST** | 784 | 10 | 88.16% | 86.41% | **86.50% (865/1000)** |
 | **EMNIST (balanced)** | 784 | 47 | 84.44% | 78.66% | **80.80% (808/1000)** |
-| **CIFAR-10** | 3072 | 10 | training… | — | — |
+| **CIFAR-10** | 3072 | 10 | 45.22% | 30.40% | **29.10% (291/1000)** |
 
 Every hardware result is **bit-exact** with the software hardware-equivalent pipeline (same per-image predictions) — the PE is an exact model of the reference XNOR-popcount computation.
 

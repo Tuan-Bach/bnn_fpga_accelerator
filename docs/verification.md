@@ -97,7 +97,7 @@ The data-driven testbench reads `model_info.txt` (input size, hidden width, clas
 | MNIST | 10 | 97.98% | **97.90% (979/1000)** | 97.33% (10k) | ✅ |
 | Fashion-MNIST | 10 | 88.16% | **86.50% (865/1000)** | 86.41% (10k) | ✅ |
 | EMNIST (balanced) | 47 | 84.44% | **80.80% (808/1000)** | 78.66% (18.8k) | ✅ |
-| CIFAR-10 | 10 | training… | — | — | — |
+| CIFAR-10 | 10 | 45.22% | **29.10% (291/1000)** | 30.40% (10k) | ✅ |
 
 Each 1000-image hardware run matches the software hardware-equivalent pipeline bit-for-bit, confirming the PE is an exact model of the reference XNOR-popcount computation.
 
@@ -122,7 +122,7 @@ Each 1000-image hardware run matches the software hardware-equivalent pipeline b
 
 ## Bit-Matching Verification
 
-Every 1000-image hardware run matched the software reference bit-for-bit for all verified datasets (MNIST 979, Fashion-MNIST 865, EMNIST 808 — identical per-image predictions between the Verilator PE run and the Python reference). The verification flow:
+Every 1000-image hardware run matched the software reference bit-for-bit for all verified datasets (MNIST 979, Fashion-MNIST 865, EMNIST 808, CIFAR-10 291 — identical per-image predictions between the Verilator PE run and the Python reference). The verification flow:
 
 1. Train deep BNN with PyTorch
 2. Export weights + thresholds to .mem files

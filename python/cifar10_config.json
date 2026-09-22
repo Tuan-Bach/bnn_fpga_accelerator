@@ -1,0 +1,1 @@
+{"in_features": 3072, "hidden": 2048, "n_classes": 10, "bin_threshold": 0.5, "invert": false}
