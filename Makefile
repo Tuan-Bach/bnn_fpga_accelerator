@@ -100,6 +100,37 @@ sim-pe-clean:
 	rm -rf obj_dir
 
 # ------------------------------------------------------------
+# MNIST Real Verification (train + export + simulate)
+# ------------------------------------------------------------
+MNIST_DATA = tb/mnist_data
+MNIST_WEIGHTS = rtl/weights
+
+mnist-train:
+	@echo "=== Training Deep BNN (PyTorch) ==="
+	cd python && python3 train_bnn_deep.py
+
+mnist-export:
+	@echo "=== Exporting Weights & Calibrating Thresholds ==="
+	@mkdir -p $(MNIST_DATA) $(MNIST_WEIGHTS)
+	cd python && python3 export_bnn_deep.py
+	cp $(MNIST_WEIGHTS)/*.mem $(MNIST_DATA)/
+
+mnist-build:
+	@echo "=== Building MNIST Verification Testbench ==="
+	rm -rf obj_dir_mnist
+	$(VERILATOR) --cc --exe --build --timing \
+		-I$(RTL_DIR) -Wall -Wno-UNUSEDSIGNAL -Wno-UNOPTFLAT \
+		-Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-IMPLICITSTATIC \
+		-Wno-UNUSEDPARAM -Wno-EOFNEWLINE \
+		--top-module pe_unit \
+		$(RTL_DIR)/pe_unit.sv $(TB_DIR)/mnist_verify_tb.cpp \
+		-Mdir obj_dir_mnist --exe mnist_verify_tb.cpp
+
+sim-mnist: mnist-train mnist-export mnist-build
+	@echo "=== Running MNIST Verification ==="
+	./obj_dir_mnist/Vpe_unit
+
+# ------------------------------------------------------------
 # Synthesis - Vivado (Zynq-7000)
 # ------------------------------------------------------------
 synth-vivado:
@@ -161,6 +192,8 @@ help:
 	@echo "  make lint           - Run Verilator lint check"
 	@echo "  make sim-pe         - Run PE unit tests (Verilator)"
 	@echo "  make sim-pe-clean   - Clean Verilator build artifacts"
+	@echo "  make mnist-build    - Build MNIST verification testbench"
+	@echo "  make sim-mnist      - Train + export + MNIST verification"
 	@echo "  make synth-vivado   - Synthesize for Zynq-7000 (Vivado)"
 	@echo "  make synth-gowin    - Synthesize for Tang Nano 9K (Gowin)"
 	@echo "  make train          - Train BNN model (Python)"

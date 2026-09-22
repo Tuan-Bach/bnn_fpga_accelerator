@@ -1,5 +1,6 @@
 # Simulation output
 obj_dir/
+obj_dir_mnist/
 *.vcd
 *.ucdb
 work/
@@ -10,6 +11,7 @@ __pycache__/
 *.pyc
 *.h5
 *.csv
+*.pt
 logs/
 
 # Synthesis
@@ -21,6 +23,7 @@ scripts/bnn_accelerator.gprj
 
 # Weights (generated)
 rtl/weights/
+tb/mnist_data/
 
 # Editor
 *.swp

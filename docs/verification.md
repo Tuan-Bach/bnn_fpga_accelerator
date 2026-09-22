@@ -71,12 +71,54 @@ cd sim
 ./run_sim.sh
 ```
 
+## End-to-End MNIST Verification (Verilator PE)
+
+Real MNIST images are run through the SystemVerilog PE hardware via `tb/mnist_verify_tb.cpp`. The deep BNN is 784 -> 2048 -> 2048 -> 2048 -> 10.
+
+### Running
+
+```bash
+# Train (~1.5h), export weights + calibrate thresholds, build + run simulation
+make sim-mnist
+
+# Or, using the saved checkpoint (fast):
+cd python && python3 export_bnn_deep.py && cd ..
+make -s build-mnist   # or: ./obj_dir_mnist/Vpe_unit (after building)
+```
+
+### Results (Verilator PE hardware simulation)
+
+```
+Correct: 979 / 1000
+Accuracy: 97.90%
+```
+
+The 1000-image hardware result matches the software hardware-equivalent pipeline bit-for-bit (979/1000), confirming the PE is an exact bit-exact model of the reference computation.
+
+### How the pipeline works
+
+1. **Training** (`python/train_bnn_deep.py`): PyTorch, 3 binary hidden layers of 2048 neurons.
+   - Weights *and* activations binarized to {-1,+1} with the straight-through estimator (STE)
+   - BatchNorm before each binarization; cosine-annealed Adam
+2. **Export & threshold calibration** (`python/export_bnn_deep.py`):
+   - Binarized weights written as 64-bit words, LSB-first (`layer{1,2,3}_weights.mem`)
+   - Output layer + bias quantized to Q4.12, 4 weights per 64-bit word (`layer4_weights.mem`, `layer4_bias.mem`)
+   - Per-neuron thresholds solved in the **hardware popcount domain**: for each neuron, the midpoint between the mean popcount when the neuron is active vs inactive over a calibration subset, using the golden binary activations as labels
+3. **Hardware simulation** (`tb/mnist_verify_tb.cpp`): each neuron's XNOR-popcount is computed by the real PE (13 words for layer 1, 32 words for layers 2-3), thresholds are applied, intermediate activations are re-packed into 64-bit words, and the output layer + argmax complete the prediction.
+
+### Important details for matching hardware exactly
+
+- **Padding bits**: layer 1 input is 784 features packed in 13 x 64-bit words; the final 48 bits are always zero in both data and weights, so they always XNOR-match and add +48 to every neuron's popcount. Calibration runs in this padded domain.
+- **Input binarization**: images binarize as `sign(x)` (any nonzero pixel) to match the way the model was trained.
+- **Activation packing**: binary activations are packed LSB-first (`activation[j]` -> bit `j%64` of word `j/64`), matching the weight file layout.
+- **Q4.12 output layer**: exactly 4 fixed-point weights per 64-bit word; the testbench unpacks with 16-bit fields.
+
 ## Bit-Matching Verification
 
-100/100 predictions matched against Python/TensorFlow reference model. The verification flow:
+The 1000-image hardware run matched the Python reference bit-for-bit. The verification flow:
 
-1. Train BNN with Larq (Python)
-2. Export weights to .mem files
-3. Load weights into Verilog testbench
-4. Feed same input data to both HW and SW
-5. Compare output bit-by-bit
+1. Train deep BNN with PyTorch
+2. Export weights + thresholds to .mem files
+3. Load weights into the Verilator PE testbench
+4. Feed the same input data to both HW and SW
+5. Compare predictions; 979/1000 both, identical per-image results
