@@ -23,7 +23,7 @@ scripts/bnn_accelerator.gprj
 
 # Weights (generated)
 rtl/weights/
-tb/mnist_data/
+tb/*_data/
 
 # Editor
 *.swp

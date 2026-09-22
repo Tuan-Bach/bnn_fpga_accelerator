@@ -16,29 +16,34 @@ make lint
 make sim-pe
 ```
 
-## End-to-End MNIST Verification
+## End-to-End Dataset Verification
 
-Train, export, and verify the deep BNN (784->2048->2048->2048->10) through the PE hardware:
+Train, export, and verify the BNN (`in->2048->2048->2048->classes`) through the PE hardware for any supported dataset:
 
 ```bash
-# Everything: train (~1.5h) -> export -> simulate. Prints 97.9% accuracy.
-make sim-mnist
+# Everything: train (~2-6h) -> export -> simulate
+make sim-dataset DATASET=mnist            # 97.9%
+make sim-dataset DATASET=fashion_mnist    # 86.5%
+make sim-dataset DATASET=emnist           # 80.8%
+make sim-dataset DATASET=cifar10
 ```
 
 Faster path using the already-trained checkpoint:
 
 ```bash
-cd python && python3 export_bnn_deep.py && cd ..
-make mnist-build            # build the Verilator MNIST testbench
-./obj_dir_mnist/Vpe_unit    # run 1000-image verification
+cd python && python3 export_bnn_dataset.py --dataset fashion_mnist && cd ..
+make mnist-build              # build the data-driven Verilator testbench once
+./obj_dir_mnist/Vpe_unit tb/fashion_mnist_data
 ```
+
+The testbench reads `model_info.txt` from the dataset directory, so the same binary verifies every dataset — just point it at a different `tb/<dataset>_data/` folder.
 
 Expected output:
 
 ```
-MNIST Verification Results (deep BNN)
-  Correct: 979 / 1000
-  Accuracy: 97.90%
+BNN Verification Results (fashion_mnist)
+  Correct: 865 / 1000
+  Accuracy: 86.50%
 ```
 
 ## Training (Python)
@@ -47,11 +52,14 @@ MNIST Verification Results (deep BNN)
 cd python
 pip install -r ../requirements.txt
 
-# Train the deep BNN on MNIST (~200 epochs, targets >95%)
-python3 train_bnn_deep.py
+# Train the deep BNN on any dataset (~200 epochs)
+python3 train_bnn_dataset.py --dataset mnist
+python3 train_bnn_dataset.py --dataset fashion_mnist
+python3 train_bnn_dataset.py --dataset emnist
+python3 train_bnn_dataset.py --dataset cifar10
 
 # Export weights, calibrate thresholds, write .mem files + software verification
-python3 export_bnn_deep.py
+python3 export_bnn_dataset.py --dataset <name>
 ```
 
 ## Synthesis
@@ -80,8 +88,8 @@ openFPGALoader -b tangnano9k scripts/bnn_accelerator.fs
 | `make lint` | Verilator lint check |
 | `make sim-pe` | Run PE unit tests |
 | `make sim-pe-clean` | Clean Verilator build |
-| `make sim-mnist` | Train + export + MNIST simulation |
-| `make mnist-build` | Build MNIST testbench (no training) |
+| `make sim-dataset DATASET=<name>` | Train + export + simulate a named dataset |
+| `make mnist-build` | Build data-driven testbench binary (once) |
 | `make synth-gowin` | Synthesize for Tang Nano 9K |
 | `make synth-vivado` | Synthesize for Zynq-7000 |
 | `make train` | Train BNN model |

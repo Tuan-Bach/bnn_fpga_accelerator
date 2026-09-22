@@ -100,23 +100,23 @@ sim-pe-clean:
 	rm -rf obj_dir
 
 # ------------------------------------------------------------
-# MNIST Real Verification (train + export + simulate)
+# Dataset Verification (train + export + simulate)
+#   make sim-dataset DATASET=fashion_mnist
+#   make sim-dataset DATASET=emnist
+#   make sim-dataset DATASET=cifar10
 # ------------------------------------------------------------
-MNIST_DATA = tb/mnist_data
-MNIST_WEIGHTS = rtl/weights
+DATASET ?= mnist
 
 mnist-train:
-	@echo "=== Training Deep BNN (PyTorch) ==="
-	cd python && python3 train_bnn_deep.py
+	@echo "=== Training BNN (PyTorch, dataset=$(DATASET)) ==="
+	cd python && python3 train_bnn_dataset.py --dataset $(DATASET)
 
 mnist-export:
 	@echo "=== Exporting Weights & Calibrating Thresholds ==="
-	@mkdir -p $(MNIST_DATA) $(MNIST_WEIGHTS)
-	cd python && python3 export_bnn_deep.py
-	cp $(MNIST_WEIGHTS)/*.mem $(MNIST_DATA)/
+	cd python && python3 export_bnn_dataset.py --dataset $(DATASET)
 
 mnist-build:
-	@echo "=== Building MNIST Verification Testbench ==="
+	@echo "=== Building Verification Testbench (data-driven) ==="
 	rm -rf obj_dir_mnist
 	$(VERILATOR) --cc --exe --build --timing \
 		-I$(RTL_DIR) -Wall -Wno-UNUSEDSIGNAL -Wno-UNOPTFLAT \
@@ -126,9 +126,22 @@ mnist-build:
 		$(RTL_DIR)/pe_unit.sv $(TB_DIR)/mnist_verify_tb.cpp \
 		-Mdir obj_dir_mnist --exe mnist_verify_tb.cpp
 
-sim-mnist: mnist-train mnist-export mnist-build
-	@echo "=== Running MNIST Verification ==="
-	./obj_dir_mnist/Vpe_unit
+# Run against a dataset directory (default: mnist)
+DATA_DIR ?= tb/mnist_data
+mnist-sim:
+	@echo "=== Running Verification: $(DATA_DIR) ==="
+	./obj_dir_mnist/Vpe_unit $(DATA_DIR)
+
+# Train + export + simulate the named dataset
+sim-dataset: mnist-train mnist-export mnist-build
+	@if [ "$(DATASET)" = "mnist" ]; then \
+		./obj_dir_mnist/Vpe_unit tb/mnist_data; \
+	else \
+		./obj_dir_mnist/Vpe_unit tb/$(DATASET)_data; \
+	fi
+
+# Full MNIST flow (default dataset)
+sim-mnist: sim-dataset
 
 # ------------------------------------------------------------
 # Synthesis - Vivado (Zynq-7000)
