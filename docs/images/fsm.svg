@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 400" font-family="monospace" font-size="12">
+  <defs>
+    <marker id="a" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#58a6ff"/>
+    </marker>
+    <marker id="ag" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#3fb950"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="820" height="400" rx="8" fill="#0d1117"/>
+
+  <!-- Title -->
+  <text x="410" y="28" text-anchor="middle" fill="#e6edf3" font-size="15" font-weight="bold">ctrl_fsm - Control State Machine</text>
+
+  <!-- IDLE -->
+  <circle cx="100" cy="100" r="40" fill="#161b22" stroke="#3fb950" stroke-width="2"/>
+  <text x="100" y="96" text-anchor="middle" fill="#3fb950" font-size="12" font-weight="bold">IDLE</text>
+  <text x="100" y="112" text-anchor="middle" fill="#8b949e" font-size="9">S0</text>
+
+  <!-- CONFIG -->
+  <circle cx="270" cy="100" r="40" fill="#161b22" stroke="#58a6ff" stroke-width="2"/>
+  <text x="270" y="96" text-anchor="middle" fill="#58a6ff" font-size="12" font-weight="bold">CONFIG</text>
+  <text x="270" y="112" text-anchor="middle" fill="#8b949e" font-size="9">S1</text>
+
+  <!-- LOAD -->
+  <circle cx="440" cy="100" r="40" fill="#161b22" stroke="#f0883e" stroke-width="2"/>
+  <text x="440" y="96" text-anchor="middle" fill="#f0883e" font-size="12" font-weight="bold">LOAD</text>
+  <text x="440" y="112" text-anchor="middle" fill="#8b949e" font-size="9">S2</text>
+
+  <!-- COMPUTE -->
+  <circle cx="610" cy="100" r="40" fill="#161b22" stroke="#bc8cff" stroke-width="2"/>
+  <text x="610" y="96" text-anchor="middle" fill="#bc8cff" font-size="12" font-weight="bold">COMPUTE</text>
+  <text x="610" y="112" text-anchor="middle" fill="#8b949e" font-size="9">S3</text>
+
+  <!-- BIAS -->
+  <circle cx="610" cy="250" r="40" fill="#161b22" stroke="#bc8cff" stroke-width="1.5"/>
+  <text x="610" y="246" text-anchor="middle" fill="#bc8cff" font-size="12" font-weight="bold">BIAS</text>
+  <text x="610" y="262" text-anchor="middle" fill="#8b949e" font-size="9">S4</text>
+
+  <!-- CLEANUP -->
+  <circle cx="440" cy="250" r="40" fill="#161b22" stroke="#f85149" stroke-width="1.5"/>
+  <text x="440" y="246" text-anchor="middle" fill="#f85149" font-size="12" font-weight="bold">CLEANUP</text>
+  <text x="440" y="262" text-anchor="middle" fill="#8b949e" font-size="9">S5</text>
+
+  <!-- DONE -->
+  <circle cx="270" cy="250" r="40" fill="#161b22" stroke="#3fb950" stroke-width="2"/>
+  <text x="270" y="246" text-anchor="middle" fill="#3fb950" font-size="12" font-weight="bold">DONE</text>
+  <text x="270" y="262" text-anchor="middle" fill="#8b949e" font-size="9">S6</text>
+
+  <!-- ERROR -->
+  <circle cx="100" cy="250" r="40" fill="#161b22" stroke="#f85149" stroke-width="2"/>
+  <text x="100" y="246" text-anchor="middle" fill="#f85149" font-size="12" font-weight="bold">ERROR</text>
+  <text x="100" y="262" text-anchor="middle" fill="#8b949e" font-size="9">S7</text>
+
+  <!-- Arrows: IDLE -> CONFIG -->
+  <line x1="140" y1="100" x2="228" y2="100" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="184" y="92" text-anchor="middle" fill="#58a6ff" font-size="9">start</text>
+
+  <!-- CONFIG -> LOAD -->
+  <line x1="310" y1="100" x2="398" y2="100" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="354" y="92" text-anchor="middle" fill="#58a6ff" font-size="9">cfg_done</text>
+
+  <!-- LOAD -> COMPUTE -->
+  <line x1="480" y1="100" x2="568" y2="100" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="524" y="92" text-anchor="middle" fill="#58a6ff" font-size="9">weights_ready</text>
+
+  <!-- COMPUTE -> COMPUTE (loop) -->
+  <path d="M 650 100 Q 700 60 650 60 Q 610 60 610 58" fill="none" stroke="#bc8cff" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="680" y="55" text-anchor="middle" fill="#bc8cff" font-size="9">more_words</text>
+
+  <!-- COMPUTE -> BIAS -->
+  <line x1="610" y1="140" x2="610" y2="208" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="620" y="178" fill="#58a6ff" font-size="9">last_word</text>
+
+  <!-- BIAS -> CLEANUP -->
+  <line x1="570" y1="250" x2="482" y2="250" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="526" y="242" text-anchor="middle" fill="#58a6ff" font-size="9">bias_applied</text>
+
+  <!-- CLEANUP -> DONE -->
+  <line x1="400" y1="250" x2="312" y2="250" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="356" y="242" text-anchor="middle" fill="#58a6ff" font-size="9">cleanup_done</text>
+
+  <!-- DONE -> IDLE -->
+  <path d="M 230 250 Q 100 320 100 142" fill="none" stroke="#3fb950" stroke-width="1.5" marker-end="url(#ag)"/>
+  <text x="130" y="310" fill="#3fb950" font-size="9">next_layer / all_done</text>
+
+  <!-- IDLE -> ERROR (timeout) -->
+  <path d="M 100 140 L 100 208" fill="none" stroke="#f85149" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="115" y="178" fill="#f85149" font-size="9">timeout</text>
+
+  <!-- ERROR -> IDLE -->
+  <path d="M 60 250 Q 20 180 60 100" fill="none" stroke="#f85149" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="25" y="178" fill="#f85149" font-size="9">reset</text>
+
+  <!-- COMPUTE loop back for multiple layers -->
+  <path d="M 570 130 Q 500 180 480 140" fill="none" stroke="#bc8cff" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="510" y="175" fill="#bc8cff" font-size="8">more_layers</text>
+
+  <!-- Legend -->
+  <rect x="30" y="340" width="760" height="45" rx="4" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <text x="50" y="360" fill="#e6edf3" font-size="10" font-weight="bold">States:</text>
+  <circle cx="120" cy="358" r="5" fill="none" stroke="#3fb950" stroke-width="1.5"/>
+  <text x="130" y="362" fill="#8b949e" font-size="9">Idle/Done</text>
+  <circle cx="210" cy="358" r="5" fill="none" stroke="#58a6ff" stroke-width="1.5"/>
+  <text x="220" y="362" fill="#8b949e" font-size="9">Config</text>
+  <circle cx="290" cy="358" r="5" fill="none" stroke="#f0883e" stroke-width="1.5"/>
+  <text x="300" y="362" fill="#8b949e" font-size="9">Load</text>
+  <circle cx="360" cy="358" r="5" fill="none" stroke="#bc8cff" stroke-width="1.5"/>
+  <text x="370" y="362" fill="#8b949e" font-size="9">Compute</text>
+  <circle cx="460" cy="358" r="5" fill="none" stroke="#f85149" stroke-width="1.5"/>
+  <text x="470" y="362" fill="#8b949e" font-size="9">Error/Cleanup</text>
+  <text x="580" y="362" fill="#8b949e" font-size="9">Outputs: layer_done, all_done, weight_addr, weight_en</text>
+</svg>
