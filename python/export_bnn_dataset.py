@@ -133,13 +133,15 @@ def elbl(y, path, n_show=1000):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dataset", default="mnist",
-                    choices=["mnist", "fashion_mnist", "emnist", "cifar10"])
+                    choices=["mnist", "fashion_mnist", "emnist", "cifar10", "pcb"])
     ap.add_argument("--cal-n", type=int, default=5000)
     ap.add_argument("--n-show", type=int, default=1000)
+    ap.add_argument("--tag", default="")
     args = ap.parse_args()
 
     here = os.path.dirname(__file__)
-    cfg_path = os.path.join(here, f"{args.dataset}_config.json")
+    tag = f"_{args.tag}" if args.tag else ""
+    cfg_path = os.path.join(here, f"{args.dataset}{tag}_config.json")
     if not os.path.exists(cfg_path):
         sys.exit(f"Missing {cfg_path} - run train_bnn_dataset.py first")
     cfg = json.load(open(cfg_path))
@@ -149,7 +151,7 @@ def main():
 
     model = BNN(n_in, hidden, n_cls)
     model.load_state_dict(torch.load(
-        os.path.join(here, f"best_bnn_{args.dataset}.pt"), weights_only=True))
+        os.path.join(here, f"best_bnn_{args.dataset}{tag}.pt"), weights_only=True))
     model.eval()
 
     print(f"Loading {args.dataset}...")
@@ -242,14 +244,36 @@ def main():
     def hw_layer(x_bin, W, thr, n_words):
         return (compute_xnor_popcount_padded(x_bin, W, n_words) > thr).astype(np.float32)
 
+    def quantize_q412(arr):
+        """Match the testbench/FPGA Q4.12 fixed-point packing exactly:
+        q = int(clip(v,-8,7.999)*4096) & 0xFFFF, reinterpreted int16 /4096.
+        """
+        q = np.clip(arr, -8.0, 7.999) * 4096.0
+        q = (q.astype(np.int32) & 0xFFFF).astype(np.uint16).astype(np.int16)
+        return q.astype(np.float32) / 4096.0
+
+    w4_q = quantize_q412(w4)          # (n_cls, hidden), exactly what .mem stores
+    b4_q = quantize_q412(b4)          # (n_cls,)
+
+    def hw_scores(a3):
+        """Output layer REPLICATING mnist_verify_tb.cpp: float32 accumulation,
+        same order (o -> idx ascending), Q4.12 weights + bias. Bit-identical."""
+        n = a3.shape[0]
+        scores = np.zeros((n, n_cls), dtype=np.float32)
+        for o in range(n_cls):
+            acc = scores[:, o]
+            for idx in range(hidden):
+                acc += a3[:, idx] * w4_q[o, idx]
+            acc += b4_q[o]
+        return scores
+
     n_show = args.n_show
     xs = tst_x[:n_show]
     ys = tst_y[:n_show]
     a1 = hw_layer(xs, w1, thr1, n_words_in)
     a2 = hw_layer(a1, w2, thr2, n_words_h)
     a3 = hw_layer(a2, w3, thr3, n_words_h)
-    scores = a3 @ w4.T + b4
-    pred = scores.argmax(axis=1)
+    pred = hw_scores(a3).argmax(axis=1)
     correct = (pred == ys).sum()
     print(f"\nSoftware HW-equivalent accuracy: {correct}/{n_show} "
           f"= {correct/n_show*100:.2f}%")
@@ -257,7 +281,7 @@ def main():
     a1 = hw_layer(tst_x, w1, thr1, n_words_in)
     a2 = hw_layer(a1, w2, thr2, n_words_h)
     a3 = hw_layer(a2, w3, thr3, n_words_h)
-    pred_all = (a3 @ w4.T + b4).argmax(axis=1)
+    pred_all = hw_scores(a3).argmax(axis=1)
     correct_all = (pred_all == tst_y).sum()
     print(f"Software HW-equivalent accuracy (full): {correct_all}/{len(tst_y)} "
           f"= {correct_all/len(tst_y)*100:.2f}%")

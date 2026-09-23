@@ -104,6 +104,7 @@ sim-pe-clean:
 #   make sim-dataset DATASET=fashion_mnist
 #   make sim-dataset DATASET=emnist
 #   make sim-dataset DATASET=cifar10
+#   make sim-dataset DATASET=pcb   (run python/prepare_pcb.py first)
 # ------------------------------------------------------------
 DATASET ?= mnist
 

@@ -36,6 +36,7 @@ def dataset_config(name):
     - mnist / fashion_mnist: black background (0), ink > 0
     - emnist: stored inverted (white background) -> invert, then > 0.5
     - cifar10: dense RGB -> threshold at > 0.5 (sign() on [0,1] is too lossy)
+    - pcb: pre-binarized patches (Otsu), stored already {0,1} -> no-op
     """
     if name in ("mnist", "fashion_mnist"):
         return {"bin_threshold": 0.0, "invert": False}
@@ -43,10 +44,20 @@ def dataset_config(name):
         return {"bin_threshold": 0.5, "invert": True}
     if name == "cifar10":
         return {"bin_threshold": 0.5, "invert": False}
+    if name == "pcb":
+        return {"bin_threshold": 0.0, "invert": False}
     raise ValueError(f"Unknown dataset {name}")
 
 
 def load_dataset(name):
+    if name == "pcb":
+        # Pre-binarized patch data produced by prepare_pcb.py (already {0,1})
+        p = "/tmp/bnn_datasets/pcb"
+        trn_x = np.load(f"{p}/train_x.npy").astype(np.float32)
+        trn_y = np.load(f"{p}/train_y.npy").astype(np.int64)
+        tst_x = np.load(f"{p}/test_x.npy").astype(np.float32)
+        tst_y = np.load(f"{p}/test_y.npy").astype(np.int64)
+        return trn_x, trn_y, tst_x, tst_y
     if datasets is None:
         raise RuntimeError("torchvision required for dataset loading")
     root = "/tmp/bnn_datasets"
@@ -184,11 +195,12 @@ def evaluate(model, loader, device):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dataset", default="fashion_mnist",
-                    choices=["mnist", "fashion_mnist", "emnist", "cifar10"])
+                    choices=["mnist", "fashion_mnist", "emnist", "cifar10", "pcb"])
     ap.add_argument("--hidden", type=int, default=2048)
     ap.add_argument("--epochs", type=int, default=200)
     ap.add_argument("--batch", type=int, default=256)
     ap.add_argument("--lr", type=float, default=1e-3)
+    ap.add_argument("--tag", default="")
     args = ap.parse_args()
 
     device = "cpu"
@@ -211,11 +223,12 @@ def main():
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
 
     best = 0.0
-    ckpt = os.path.join(os.path.dirname(__file__), f"best_bnn_{args.dataset}.pt")
+    tag = f"_{args.tag}" if args.tag else ""
+    ckpt = os.path.join(os.path.dirname(__file__), f"best_bnn_{args.dataset}{tag}.pt")
     cfg = {"in_features": n_in, "hidden": args.hidden, "n_classes": n_cls,
            "bin_threshold": dataset_config(args.dataset)["bin_threshold"],
            "invert": dataset_config(args.dataset)["invert"]}
-    with open(os.path.join(os.path.dirname(__file__), f"{args.dataset}_config.json"), "w") as f:
+    with open(os.path.join(os.path.dirname(__file__), f"{args.dataset}{tag}_config.json"), "w") as f:
         json.dump(cfg, f)
 
     print("Training...")

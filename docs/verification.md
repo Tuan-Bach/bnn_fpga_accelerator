@@ -73,7 +73,7 @@ cd sim
 
 ## End-to-End Dataset Verification (Verilator PE)
 
-Real test images for **MNIST, Fashion-MNIST, EMNIST (balanced), and CIFAR-10** are run through the SystemVerilog PE hardware via `tb/mnist_verify_tb.cpp`. The BNN topology is `in_features -> 2048 -> 2048 -> 2048 -> classes`, configured at runtime by `model_info.txt` — one testbench binary verifies every dataset.
+Real test images for **MNIST, Fashion-MNIST, EMNIST (balanced), CIFAR-10, and PCB-AOI defect patches** are run through the SystemVerilog PE hardware via `tb/mnist_verify_tb.cpp`. The BNN topology is `in_features -> hidden^3 -> classes`, configured at runtime by `model_info.txt` — one testbench binary verifies every dataset and every hidden width.
 
 ### Running
 
@@ -96,14 +96,21 @@ The data-driven testbench reads `model_info.txt` (input size, hidden width, clas
 |---------|---------|----------------|---------------------------|---------------------------|-----------|
 | MNIST | 10 | 97.98% | **97.90% (979/1000)** | 97.33% (10k) | ✅ |
 | Fashion-MNIST | 10 | 88.16% | **86.50% (865/1000)** | 86.41% (10k) | ✅ |
-| EMNIST (balanced) | 47 | 84.44% | **80.80% (808/1000)** | 78.66% (18.8k) | ✅ |
+| EMNIST (balanced) | 47 | 84.44% | **80.80% (808/1000)** | 78.64% (18.8k) | ✅ |
 | CIFAR-10 | 10 | 45.22% | **29.10% (291/1000)** | 30.40% (10k) | ✅ |
+| PCB-AOI 2048³ | 6 | 59.40% | **55.50% (555/1000)** | 54.14% (1.16k) | ✅ |
+| PCB-AOI 1024³ | 6 | 60.00% | **56.80% (568/1000)** | 55.34% (1.16k) | ✅ |
+| PCB-AOI 512³ | 6 | 56.55% | **52.70% (527/1000)** | 51.72% (1.16k) | ✅ |
+| PCB-AOI 384³ | 6 | 54.40% | **53.20% (532/1000)** | 51.21% (1.16k) | ✅ |
+| PCB-AOI 320³ | 6 | 55.69% | **50.80% (508/1000)** | 50.00% (1.16k) | ✅ |
+
+\* The PCB-AOI rows are the hidden-width sweep (2048→320, same 1,160-patch test set); each row reports its own float training best.
 
 Each 1000-image hardware run matches the software hardware-equivalent pipeline bit-for-bit, confirming the PE is an exact model of the reference XNOR-popcount computation.
 
 ### How the pipeline works
 
-1. **Training** (`python/train_bnn_dataset.py --dataset <name>`): PyTorch, 3 binary hidden layers of 2048 neurons.
+1. **Training** (`python/train_bnn_dataset.py --dataset <name> [--hidden W] [--tag t]`): PyTorch, 3 binary hidden layers of width W (default 2048; the PCB sweep used 320–2048).
    - Weights *and* activations binarized to {-1,+1} with the straight-through estimator (STE)
    - BatchNorm before each binarization; cosine-annealed Adam; input binarization policy is per-dataset and shared with export
 2. **Export & threshold calibration** (`python/export_bnn_dataset.py --dataset <name>`):
@@ -111,18 +118,18 @@ Each 1000-image hardware run matches the software hardware-equivalent pipeline b
    - Output layer + bias quantized to Q4.12, 4 weights per 64-bit word (`layer4_weights.mem`, `layer4_bias.mem`)
    - Per-neuron thresholds solved in the **hardware popcount domain**: for each neuron, the midpoint between the mean popcount when the neuron is active vs inactive over a calibration subset, using the golden binary activations as labels
    - Writes `model_info.txt` + test images/labels into `tb/<dataset>_data/`
-3. **Hardware simulation** (`tb/mnist_verify_tb.cpp`): each neuron's XNOR-popcount is computed by the real PE (13 words/layer-1 input for 784 features, 48 words for CIFAR's 3072, 32 words for the 2048 hidden layers), thresholds are applied, intermediate activations are re-packed into 64-bit words, and the output layer + argmax complete the prediction.
+3. **Hardware simulation** (`tb/mnist_verify_tb.cpp`): each neuron's XNOR-popcount is computed by the real PE (25 words/layer-1 input for PCB's 1600 features, 48 words for CIFAR's 3072, 13 for 784 — and W/64 words for each hidden layer at width W), thresholds are applied, intermediate activations are re-packed into 64-bit words, and the output layer + argmax complete the prediction.
 
 ### Important details for matching hardware exactly
 
 - **Padding bits**: inputs are packed into full 64-bit words; the trailing bits are always zero in both data and weights, so they always XNOR-match and add to every neuron's popcount. Calibration runs in this padded domain.
-- **Input binarization matches training exactly**: MNIST/Fashion binarize any-nonzero pixel; EMNIST is stored inverted (white background) so it is inverted then thresholded at >0.5; CIFAR-10 (dense RGB) is thresholded at >0.5. The loader in `train_bnn_dataset.py` and the exporter share one policy (`dataset_config()`).
+- **Input binarization matches training exactly**: MNIST/Fashion binarize any-nonzero pixel; EMNIST is stored inverted (white background) so it is inverted then thresholded at >0.5; CIFAR-10 (dense RGB) is thresholded at >0.5; PCB-AOI patches are Otsu-binarized per patch in `prepare_pcb.py`. The loader in `train_bnn_dataset.py` and the exporter share one policy (`dataset_config()`).
 - **Activation packing**: binary activations are packed LSB-first (`activation[j]` -> bit `j%64` of word `j/64`), matching the weight file layout.
 - **Q4.12 output layer**: exactly 4 fixed-point weights per 64-bit word; the testbench unpacks with 16-bit fields.
 
 ## Bit-Matching Verification
 
-Every 1000-image hardware run matched the software reference bit-for-bit for all verified datasets (MNIST 979, Fashion-MNIST 865, EMNIST 808, CIFAR-10 291 — identical per-image predictions between the Verilator PE run and the Python reference). The verification flow:
+Every 1000-image hardware run matched the software reference bit-for-bit for all verified datasets: MNIST 979, Fashion-MNIST 865, EMNIST 808, CIFAR-10 291, and PCB-AOI 555/568/527/532/508 across the 2048/1024/512/384/320³ widths — identical per-image predictions between the Verilator PE run and the Python reference. The software reference replicates the testbench's output layer exactly (Q4.12 weights/bias, same float32 accumulation order) so equivalence holds up to hard near-ties. The verification flow:
 
 1. Train deep BNN with PyTorch
 2. Export weights + thresholds to .mem files

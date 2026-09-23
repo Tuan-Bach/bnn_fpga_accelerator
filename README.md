@@ -49,10 +49,27 @@ End-to-end verification with real dataset images through the Verilog PE hardware
 |---------|-------|---------|----------------|----------------------------|----------------------|
 | **MNIST** | 784 | 10 | 97.98% | 97.33% | **97.90% (979/1000)** |
 | **Fashion-MNIST** | 784 | 10 | 88.16% | 86.41% | **86.50% (865/1000)** |
-| **EMNIST (balanced)** | 784 | 47 | 84.44% | 78.66% | **80.80% (808/1000)** |
+| **EMNIST (balanced)** | 784 | 47 | 84.44% | 78.64% | **80.80% (808/1000)** |
 | **CIFAR-10** | 3072 | 10 | 45.22% | 30.40% | **29.10% (291/1000)** |
+| **PCB-AOI (defects)** | 1600 | 6 | 60.00% | 55.34% | **56.80% (568/1000)** |
 
 Every hardware result is **bit-exact** with the software hardware-equivalent pipeline (same per-image predictions) — the PE is an exact model of the reference XNOR-popcount computation.
+
+### PCB Defect AOI — real-world example
+
+Beyond digit/object benchmarks, the pipeline was validated on a real industrial AOI task: **PCB defect classification** on the classic [PCB-AOI](https://huggingface.co/datasets/kshitij1507/PCB-AOI) dataset (six classes: missing hole, mouse bite, open circuit, short, spur, spurious copper). Defect patches are cropped around the annotations (~3.2× the defect box, resized to 40×40 = 1600 inputs), binarized with a **per-patch Otsu threshold** (per-image Otsu is unstable here — identical copper tones flip polarity between images), and flip-augmented on the train split. This is the exact pre-processing that runs on the FPGA as a black-and-white input.
+
+A hidden-width sweep (1,553 training images / 6,625 defect patches before augmentation) shows where the accuracy/size sweet spot is:
+
+| hidden³ | PE accuracy (1000) | Weights (packed, approx.) | Fits on-chip BRAM (~103 KB)? |
+|---------|--------------------|---------------------------|------------------------------|
+| 2048 | 55.50% (555/1000) | ~1.46 MB | ❌ |
+| 1024 | **56.80% (568/1000)** | ~474 KB | ❌ |
+| 512 | 52.70% (527/1000) | ~173 KB | ❌ |
+| 384 | 53.20% (532/1000) | ~118 KB | ❌ (knife edge) |
+| 320 | 50.80% (508/1000) | ~95 KB | ✅ |
+
+Every width is bit-exact between software and the PE. The **1024³** model is the accuracy peak; **320³** trades ~6 points to fit the complete weight set in the Tang Nano 9K's on-chip block RAM — the natural configuration for a standalone AOI inspector (and it still reaches 3× the 1-in-6 random baseline).
 
 ```bash
 # Full pipeline for any dataset (train -> export -> simulate)
@@ -60,6 +77,13 @@ make sim-dataset DATASET=mnist
 make sim-dataset DATASET=fashion_mnist
 make sim-dataset DATASET=emnist
 make sim-dataset DATASET=cifar10
+make sim-dataset DATASET=pcb
+
+# PCB defect workflow (prepare -> train a width -> export -> simulate)
+cd python && python3 prepare_pcb.py
+python3 train_bnn_dataset.py --dataset pcb --hidden 1024 --tag 1024
+python3 export_bnn_dataset.py --dataset pcb --tag 1024 && cd ..
+./obj_dir_mnist/Vpe_unit tb/pcb_data
 
 # Faster: skip re-training, export from the saved checkpoint:
 cd python && python3 export_bnn_dataset.py --dataset mnist && cd ..
@@ -70,7 +94,7 @@ The testbench loads real test images, runs the BNN through the PE hardware one n
 
 Key techniques for accuracy:
 - **PyTorch training** (`python/train_bnn_dataset.py`): 3 hidden layers of 2048, sign-binarized weights & activations, straight-through estimator, BatchNorm before binarization, cosine LR schedule; parameterized by `--dataset`
-- **Per-dataset input binarization matched to training**: MNIST/Fashion binarize any-nonzero, EMNIST is inverted (white background) then thresholded at >0.5, CIFAR-10 thresholds dense RGB at >0.5 — the loader, training, and export all share the same policy
+- **Per-dataset input binarization matched to training**: MNIST/Fashion binarize any-nonzero, EMNIST is inverted (white background) then thresholded at >0.5, CIFAR-10 thresholds dense RGB at >0.5, and PCB-AOI defect patches are binarized with a per-patch Otsu threshold in `prepare_pcb.py` — the loader, training, and export all share the same policy
 - **Padding-aware threshold calibration** (`python/export_bnn_dataset.py`): thresholds are solved in the *hardware popcount domain*, accounting for the always-matching padding bits
 - **Float output layer** exported as Q4.12 fixed-point (4 weights per 64-bit word) with per-class bias
 
